@@ -1,0 +1,17 @@
+# Copy this file to terraform.tfvars and update with your values
+# DO NOT commit terraform.tfvars to version control as it contains sensitive information
+
+# Your Octopus Deploy server URL (use localhost:8080 if using port-forward from install.sh)
+octopus_server_url = "http://localhost:8080"
+
+# Your Octopus Deploy API key (create this in the Octopus web interface)
+# octopus_api_key = "API-XXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# The space ID to manage (usually "Spaces-1" for the default space)
+octopus_space_id = "Spaces-1"
+
+# Environment names to create
+environment_names = ["Development", "Test", "Production"]
+
+# Project group name
+project_group_name = "Terraform Managed Projects"

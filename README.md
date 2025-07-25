@@ -154,6 +154,31 @@ kubectl delete namespace octopus
 rm -f octopus-values.yaml tentacle-values.yaml
 ```
 
+## Terraform Configuration
+
+This repository includes Terraform configuration files in the `terraform/` directory to manage your Octopus Deploy instance using Infrastructure as Code.
+
+### Quick Start with Terraform
+
+1. **Generate an API Key** in your Octopus Deploy web interface (`http://localhost:8080`)
+2. **Navigate to the terraform directory**:
+   ```bash
+   cd terraform
+   ```
+3. **Configure your variables**:
+   ```bash
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars and add your API key
+   ```
+4. **Initialize and apply**:
+   ```bash
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+See the [terraform/README.md](terraform/README.md) for detailed instructions.
+
 ## License
 
 This project is provided as-is. Please review Octopus Deploy's licensing terms before use.
