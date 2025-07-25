@@ -1,44 +1,17 @@
-# Create environments
-resource "octopusdeploy_environment" "environments" {
-  for_each = toset(var.environment_names)
-  
-  name                         = each.value
-  description                  = "Environment for ${each.value}"
-  allow_dynamic_infrastructure = true
-  use_guided_failure           = false
-}
-
-# Create a project group
-resource "octopusdeploy_project_group" "main" {
-  name        = var.project_group_name
-  description = "Main project group managed by Terraform"
-}
-
-# Example lifecycle
-resource "octopusdeploy_lifecycle" "main" {
-  name        = "Terraform Managed Lifecycle"
-  description = "Lifecycle managed by Terraform"
-
-  release_retention_policy {
-    quantity_to_keep    = 30
-    should_keep_forever = false
-    unit                = "Items"
-  }
-
-  tentacle_retention_policy {
-    quantity_to_keep    = 30
-    should_keep_forever = false
-    unit                = "Items"
-  }
-
-  dynamic "phase" {
-    for_each = var.environment_names
-    content {
-      name                                  = phase.value
-      automatic_deployment_targets          = []
-      optional_deployment_targets           = [octopusdeploy_environment.environments[phase.value].id]
-      is_optional_phase                     = false
-      minimum_environments_before_promotion = 0
-    }
-  }
-}
+# Octopus Deploy on Kubernetes - Terraform Configuration
+#
+# This configuration is split into two phases:
+#
+# Phase 1 (phase1.tf): Infrastructure deployment (Kubernetes namespace, Helm charts)
+# - Does not require Octopus API key
+# - Deploys Octopus Server and SQL Server containers
+# 
+# Phase 2 (phase2.tf): Octopus configuration (environments, project groups, lifecycles)
+# - Requires Octopus API key and running server
+# - Creates Octopus Deploy resources
+#
+# Usage:
+# 1. Run Phase 1: terraform apply -target=module.phase1
+# 2. Get API key from Octopus web interface
+# 3. Update terraform.tfvars with API key and set create_octopus_resources = true
+# 4. Run Phase 2: terraform apply

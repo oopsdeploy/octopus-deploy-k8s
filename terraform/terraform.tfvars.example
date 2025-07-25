@@ -1,17 +1,34 @@
 # Copy this file to terraform.tfvars and update with your values
 # DO NOT commit terraform.tfvars to version control as it contains sensitive information
 
-# Your Octopus Deploy server URL (use localhost:8080 if using port-forward from install.sh)
-octopus_server_url = "http://localhost:8080"
+# Kubernetes namespace for Octopus Deploy
+namespace = "octopus"
 
-# Your Octopus Deploy API key (create this in the Octopus web interface)
-# octopus_api_key = "API-XXXXXXXXXXXXXXXXXXXXXXXXXX"
+# Octopus Deploy admin credentials (used during initial setup)
+octopus_admin_username = "admin"
+octopus_admin_password = "Password01!"
 
-# The space ID to manage (usually "Spaces-1" for the default space)
+# Docker image versions
+octopus_image_tag = "latest"
+sqlserver_image_tag = "2019-latest"
+
+# Post-deployment configuration (Phase 2)
+# Leave octopus_api_key empty for initial deployment, then add it for Phase 2
+octopus_server_url = "http://localhost:8080"  # Use this if port-forwarding
+octopus_api_key = ""  # Add your API key here for Phase 2 configuration
 octopus_space_id = "Spaces-1"
 
-# Environment names to create
+# Set to true to create Octopus Deploy resources (environments, project groups, etc.)
+# Only enable this after initial deployment and when API key is configured
+create_octopus_resources = false
+
+# Environment names to create (Phase 2)
 environment_names = ["Development", "Test", "Production"]
 
-# Project group name
+# Project group name (Phase 2)
 project_group_name = "Terraform Managed Projects"
+
+# Kubernetes deployment target configuration (Phase 2)
+kubernetes_cluster_url = "https://kubernetes.default.svc.cluster.local:443"  # Internal cluster URL for Kubernetes Agent
+kubernetes_skip_tls_verification = true  # Set to false for production with proper certs
+kubernetes_worker_pool_id = ""  # Empty for default worker pool
