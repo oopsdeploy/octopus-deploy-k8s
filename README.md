@@ -35,6 +35,32 @@ This deployment uses the **Kubernetes Agent** approach, which is the recommended
 - Higher resource overhead
 - Not recommended for Kubernetes
 
+## Quick Start
+
+1. **Clone and navigate**:
+   ```bash
+   git clone <repository-url>
+   cd octopus-deploy-k8s
+   ```
+
+2. **Deploy with Terraform**:
+   ```bash
+   cd terraform
+   terraform init
+   terraform apply
+   ```
+
+3. **Install kubectl in Octopus** (for Kubernetes deployment targets):
+   ```bash
+   cd ..
+   ./kubectl-install.sh
+   ```
+
+4. **Access Octopus Deploy**:
+   - URL: `http://localhost`
+   - Username: `admin`
+   - Password: `Password01!`
+
 ## Terraform Deployment (Recommended)
 
 ### Why Two Phases?

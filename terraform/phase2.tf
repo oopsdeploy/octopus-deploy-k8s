@@ -22,25 +22,59 @@ resource "octopusdeploy_project_group" "main" {
   depends_on = [helm_release.octopus_server]
 }
 
-# Create Kubernetes deployment target for the current cluster
-resource "octopusdeploy_kubernetes_cluster_deployment_target" "docker_desktop" {
+# Deploy CSI Driver NFS (required for Kubernetes Agent)
+resource "helm_release" "csi_driver_nfs" {
   count = var.create_octopus_resources && var.octopus_api_key != "" ? 1 : 0
   
-  name         = "docker-desktop"
-  environments = [for env in octopusdeploy_environment.environments : env.id]
-  roles        = ["k8s"]
+  name       = "csi-driver-nfs"
+  repository = "https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts"
+  chart      = "csi-driver-nfs"
+  namespace  = "kube-system"
+  version    = "v4.*.*"
   
-  cluster_url                = var.kubernetes_cluster_url
-  skip_tls_verification      = var.kubernetes_skip_tls_verification
-  default_worker_pool_id     = var.kubernetes_worker_pool_id
+  atomic = true
   
-  # Use the service account token from the octopus namespace
-  authentication {
-    account_id = octopusdeploy_token_account.kubernetes_service_account[0].id
-  }
-
   depends_on = [octopusdeploy_environment.environments]
 }
+
+# Deploy Kubernetes Agent
+resource "helm_release" "kubernetes_agent" {
+  count = var.create_octopus_resources && var.octopus_api_key != "" ? 1 : 0
+  
+  name             = var.kubernetes_agent_name
+  repository       = "oci://registry-1.docker.io/octopusdeploy"
+  chart            = "kubernetes-agent"
+  namespace        = "octopus-agent-${var.kubernetes_agent_name}"
+  create_namespace = true
+  version          = "2.*.*"
+  
+  atomic = true
+  
+  values = [
+    yamlencode({
+      agent = {
+        acceptEula = "Y"
+        space = var.octopus_space_id
+        serverUrl = var.octopus_server_url
+        serverCommsAddresses = ["${var.octopus_server_url}:10943"]
+        bearerToken = var.octopus_bearer_token
+        name = var.kubernetes_agent_name
+        deploymentTarget = {
+          initial = {
+            environments = var.environment_names
+            tags = ["k8s"]
+          }
+          enabled = "true"
+        }
+      }
+    })
+  ]
+  
+  depends_on = [helm_release.csi_driver_nfs, octopusdeploy_environment.environments]
+}
+
+# Note: The Kubernetes Agent will automatically create its deployment target in Octopus
+# We don't need to create it manually with Terraform since the agent registers itself
 
 # Create a token account for the Kubernetes service account
 resource "octopusdeploy_token_account" "kubernetes_service_account" {

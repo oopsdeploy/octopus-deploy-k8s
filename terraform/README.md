@@ -46,19 +46,14 @@ This Terraform configuration completely replaces the manual `install.sh` script 
    terraform apply
    ```
 
-4. **Set up port forwarding**:
-   ```bash
-   # Use the output command from terraform apply
-   kubectl port-forward deployment/octopus-web 8080:80 -n octopus
-   ```
-
-5. **Access Octopus Deploy** at `http://localhost:8080`:
+4. **Access Octopus Deploy** at `http://localhost`:
    - Username: `admin`
    - Password: `Password01!` (or whatever you set in terraform.tfvars)
+   - The service is exposed as a LoadBalancer on port 80
 
 ### Phase 2: Configure Octopus Resources (Optional)
 
-After Phase 1 is complete and you can access Octopus:
+After Phase 1 is complete and you can access Octopus at `http://localhost`:
 
 1. **Create an API Key** in Octopus Deploy:
    - Go to Configuration → Users → admin → API Keys
@@ -103,7 +98,14 @@ octopus_api_key = "API-XXX..."          # Your API key
 create_octopus_resources = true         # Enable Phase 2
 environment_names = ["Dev", "Test", "Prod"]  # Environments to create
 project_group_name = "My Projects"      # Project group name
+
+# Kubernetes deployment target (uses modern "Kubernetes API" approach)
+kubernetes_cluster_url = "https://kubernetes.default.svc.cluster.local:443"
+kubernetes_skip_tls_verification = true  # Set to false for production
 ```
+
+**Note on Kubernetes Deployment Targets**: 
+This configuration creates a "Kubernetes API" deployment target, which is the modern recommended approach. It uses direct Kubernetes API communication without requiring separate agent containers. This is more secure and efficient than traditional tentacle-based approaches.
 
 ## Useful Terraform Commands
 
@@ -164,13 +166,35 @@ If you previously used `install.sh`, you can:
    helm repo update
    ```
 
-3. **Port forwarding**:
+3. **Port forwarding** (if needed for troubleshooting):
    ```bash
    kubectl get pods -n octopus
    kubectl port-forward deployment/octopus-web 8080:80 -n octopus
    ```
 
-4. **Check deployment status**:
+4. **Kubernetes deployment target health check failures**:
+   
+   The most common issue is that `kubectl` is not available in the Octopus container. This is required for Kubernetes API deployment targets.
+   
+   **Manual Fix** (after pod restarts):
+   ```bash
+   kubectl exec -n octopus octopus-0 -- bash -c "curl -LO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/"
+   ```
+   
+   **Automated Fix** (create a helper script):
+   ```bash
+   # Create kubectl-install.sh
+   cat > kubectl-install.sh << 'EOF'
+   #!/bin/bash
+   echo "Installing kubectl in Octopus container..."
+   kubectl exec -n octopus octopus-0 -- bash -c "curl -LO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/ && kubectl version --client"
+   echo "kubectl installation completed!"
+   EOF
+   chmod +x kubectl-install.sh
+   ./kubectl-install.sh
+   ```
+
+5. **Check deployment status**:
    ```bash
    kubectl get all -n octopus
    kubectl describe deployment octopus-web -n octopus

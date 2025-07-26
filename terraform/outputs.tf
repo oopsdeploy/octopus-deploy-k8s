@@ -23,9 +23,9 @@ output "octopus_admin_credentials" {
   sensitive = true
 }
 
-output "port_forward_command" {
-  description = "Command to port-forward to the Octopus web interface"
-  value       = "kubectl port-forward deployment/octopus-web 8080:80 -n ${var.namespace}"
+output "access_instructions" {
+  description = "How to access Octopus Deploy"
+  value       = "Access Octopus Deploy at ${var.octopus_server_url} with username '${var.octopus_admin_username}' and the configured password"
 }
 
 output "environments" {
@@ -38,9 +38,14 @@ output "project_group_id" {
   value       = var.create_octopus_resources && var.octopus_api_key != "" && length(octopusdeploy_project_group.main) > 0 ? octopusdeploy_project_group.main[0].id : null
 }
 
-output "kubernetes_deployment_target_id" {
-  description = "The ID of the created Kubernetes deployment target"
-  value       = var.create_octopus_resources && var.octopus_api_key != "" && length(octopusdeploy_kubernetes_cluster_deployment_target.docker_desktop) > 0 ? octopusdeploy_kubernetes_cluster_deployment_target.docker_desktop[0].id : null
+output "kubernetes_agent_release_status" {
+  description = "Status of the Kubernetes Agent Helm release"
+  value       = var.create_octopus_resources && var.octopus_api_key != "" && var.octopus_bearer_token != "" && length(helm_release.kubernetes_agent) > 0 ? helm_release.kubernetes_agent[0].status : null
+}
+
+output "kubernetes_agent_namespace" {
+  description = "Namespace where the Kubernetes Agent is deployed"
+  value       = var.create_octopus_resources && var.octopus_api_key != "" && var.octopus_bearer_token != "" ? "octopus-agent-${var.kubernetes_agent_name}" : null
 }
 
 output "service_account_token_account_id" {

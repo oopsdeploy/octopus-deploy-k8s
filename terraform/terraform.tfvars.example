@@ -1,4 +1,11 @@
-# Copy this file to terraform.tfvars and update with your values
+# Copy this file to terraform.# Kubernetes deployment target configuration (Phase 2)
+kubernetes_cluster_url = "https://kubernetes.default.svc.cluster.local:443"  # Internal cluster URL
+kubernetes_skip_tls_verification = true  # Set to false for production with proper certs
+kubernetes_worker_pool_id = ""  # Empty for default worker pool
+
+# Kubernetes Agent configuration (Phase 2)
+kubernetes_agent_name = "docker-desktop"  # Name for the Kubernetes Agent
+octopus_bearer_token = ""  # Bearer token from Octopus UI (will be prompted during installation)rs and update with your values
 # DO NOT commit terraform.tfvars to version control as it contains sensitive information
 
 # Kubernetes namespace for Octopus Deploy

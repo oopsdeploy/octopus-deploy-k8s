@@ -84,3 +84,16 @@ variable "kubernetes_worker_pool_id" {
   type        = string
   default     = ""
 }
+
+variable "kubernetes_agent_name" {
+  description = "Name for the Kubernetes Agent"
+  type        = string
+  default     = "docker-desktop"
+}
+
+variable "octopus_bearer_token" {
+  description = "Bearer token for Kubernetes Agent authentication (generated from Octopus UI)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

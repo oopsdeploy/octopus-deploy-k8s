@@ -99,43 +99,11 @@ resource "helm_release" "octopus_server" {
         password   = var.octopus_admin_password
         acceptEula = "Y"
         masterKey  = base64encode(random_password.octopus_master_key.result)
-        # Install kubectl in the container for Kubernetes Agent functionality
+        # Environment variables for debugging
         extraEnv = [
           {
             name  = "INSTALL_KUBECTL"
             value = "true"
-          }
-        ]
-        # Add init container to install kubectl
-        initContainers = [
-          {
-            name  = "install-kubectl"
-            image = "alpine/k8s:1.28.0"
-            command = ["/bin/sh"]
-            args = [
-              "-c",
-              "cp /usr/bin/kubectl /shared/kubectl && chmod +x /shared/kubectl"
-            ]
-            volumeMounts = [
-              {
-                name      = "kubectl-binary"
-                mountPath = "/shared"
-              }
-            ]
-          }
-        ]
-        # Mount kubectl from init container
-        extraVolumes = [
-          {
-            name = "kubectl-binary"
-            emptyDir = {}
-          }
-        ]
-        extraVolumeMounts = [
-          {
-            name      = "kubectl-binary"
-            mountPath = "/usr/local/bin"
-            subPath   = "kubectl"
           }
         ]
       }
