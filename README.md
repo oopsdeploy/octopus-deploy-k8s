@@ -141,6 +141,7 @@ After deployment:
 - 🗄️ SQL Server 2019 Linux database
 - 🔐 Auto-generated master key for encryption
 - 🌐 LoadBalancer service for web access
+- ⚙️ kubectl automatically installed on every container startup
 
 ### Octopus Configuration
 - 🌍 **Environments**: Development, Test, Production
@@ -176,7 +177,9 @@ kubectl describe pod octopus-0 -n octopus
 
 1. **kubectl missing in Octopus container**:
    ```bash
-   ./kubectl-install.sh
+   # kubectl is now automatically installed on every pod startup
+   # Check if it's available:
+   kubectl exec -n octopus octopus-0 -- kubectl version --client
    ```
 
 2. **Kubernetes Agent health check failing**:

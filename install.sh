@@ -287,18 +287,20 @@ show_final_instructions() {
     echo "  ✅ Octopus Deploy server with SQL Server backend"
     echo "  ✅ Kubernetes namespace: $NAMESPACE"
     echo "  ✅ RBAC configuration for Kubernetes deployments"
+    echo "  ✅ kubectl automatically installed in Octopus container"
     echo "  ✅ Environments: Development, Test, Production"
-    echo "  ✅ Kubernetes API deployment target: docker-desktop (modern approach)"
+    echo "  ✅ CSI Driver NFS for Kubernetes Agent support"
+    echo "  ✅ Kubernetes Agent deployment target: $NAMESPACE"
     echo "  ✅ Project group: Terraform Managed Projects"
     echo "  ✅ Lifecycle with retention policies"
     echo ""
     echo -e "${BLUE}Useful Commands:${NC}"
     echo "  📊 Check pods: kubectl get pods -n $NAMESPACE"
-    echo "  🔧 Reinstall kubectl: ./kubectl-install.sh"
+    echo "  🔧 Verify kubectl: kubectl exec -n $NAMESPACE octopus-0 -- kubectl version --client"
     echo "  🏗️  Terraform status: cd terraform && terraform show"
     echo "  🗑️  Destroy everything: cd terraform && terraform destroy"
     echo ""
-    echo -e "${YELLOW}Note:${NC} If the octopus-0 pod restarts, you may need to reinstall kubectl using ./kubectl-install.sh"
+    echo -e "${YELLOW}Note:${NC} kubectl is automatically installed on every pod restart via init container"
 }
 
 # Main execution flow
@@ -310,7 +312,7 @@ main() {
     initialize_terraform
     deploy_phase1
     wait_for_octopus
-    install_kubectl
+    # kubectl is now installed automatically via init container
     get_api_key
     get_bearer_token
     deploy_phase2

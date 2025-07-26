@@ -1,11 +1,4 @@
-# Copy this file to terraform.# Kubernetes deployment target configuration (Phase 2)
-kubernetes_cluster_url = "https://kubernetes.default.svc.cluster.local:443"  # Internal cluster URL
-kubernetes_skip_tls_verification = true  # Set to false for production with proper certs
-kubernetes_worker_pool_id = ""  # Empty for default worker pool
-
-# Kubernetes Agent configuration (Phase 2)
-kubernetes_agent_name = "docker-desktop"  # Name for the Kubernetes Agent
-octopus_bearer_token = ""  # Bearer token from Octopus UI (will be prompted during installation)rs and update with your values
+# Copy this file to terraform.tfvars and update with your values
 # DO NOT commit terraform.tfvars to version control as it contains sensitive information
 
 # Kubernetes namespace for Octopus Deploy
@@ -19,10 +12,13 @@ octopus_admin_password = "Password01!"
 octopus_image_tag = "latest"
 sqlserver_image_tag = "2019-latest"
 
+# kubectl version to install in Octopus container
+kubectl_version = "v1.28.0"
+
 # Post-deployment configuration (Phase 2)
 # Leave octopus_api_key empty for initial deployment, then add it for Phase 2
-octopus_server_url = "http://localhost:8080"  # Use this if port-forwarding
-octopus_api_key = ""  # Add your API key here for Phase 2 configuration
+octopus_server_url = "http://localhost"  # Updated to use LoadBalancer service
+octopus_api_key = "YOUR_API_KEY_HERE"  # Add your API key here for Phase 2 configuration
 octopus_space_id = "Spaces-1"
 
 # Set to true to create Octopus Deploy resources (environments, project groups, etc.)
@@ -39,3 +35,7 @@ project_group_name = "Terraform Managed Projects"
 kubernetes_cluster_url = "https://kubernetes.default.svc.cluster.local:443"  # Internal cluster URL for Kubernetes Agent
 kubernetes_skip_tls_verification = true  # Set to false for production with proper certs
 kubernetes_worker_pool_id = ""  # Empty for default worker pool
+
+# Kubernetes Agent configuration (Phase 2)
+kubernetes_agent_name = "docker-desktop"  # Name for the Kubernetes Agent
+octopus_bearer_token = "YOUR_BEARER_TOKEN_HERE"  # Bearer token from Octopus UI (will be prompted during installation)

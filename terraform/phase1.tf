@@ -99,12 +99,27 @@ resource "helm_release" "octopus_server" {
         password   = var.octopus_admin_password
         acceptEula = "Y"
         masterKey  = base64encode(random_password.octopus_master_key.result)
-        # Environment variables for debugging
+        # Environment variables for kubectl installation
         extraEnv = [
           {
-            name  = "INSTALL_KUBECTL"
-            value = "true"
+            name  = "KUBECTL_VERSION"
+            value = var.kubectl_version
           }
+        ]
+        # Add startup command to install kubectl before Octopus starts
+        command = ["/bin/bash"]
+        args = [
+          "-c",
+          <<-EOF
+          echo "Installing kubectl ${var.kubectl_version}..."
+          curl -LO "https://dl.k8s.io/release/${var.kubectl_version}/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          mv kubectl /usr/local/bin/kubectl
+          echo "kubectl installed successfully"
+          kubectl version --client
+          echo "Starting Octopus Deploy..."
+          exec /usr/local/bin/docker-entrypoint.sh
+          EOF
         ]
       }
       "mssql-linux" = {

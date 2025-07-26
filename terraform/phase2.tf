@@ -54,10 +54,11 @@ resource "helm_release" "kubernetes_agent" {
     yamlencode({
       agent = {
         acceptEula = "Y"
-        space = var.octopus_space_id
-        serverUrl = var.octopus_server_url
-        serverCommsAddresses = ["${var.octopus_server_url}:10943"]
-        bearerToken = var.octopus_bearer_token
+        space = "Default"  # Use space name, not ID
+        serverUrl = var.octopus_server_internal_url
+        serverCommsAddresses = ["tcp://${replace(var.octopus_server_internal_url, "http://", "")}:10943"]
+        # Use API key instead of bearer token for authentication
+        serverApiKey = var.octopus_api_key
         name = var.kubernetes_agent_name
         deploymentTarget = {
           initial = {

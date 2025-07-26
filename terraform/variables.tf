@@ -1,7 +1,13 @@
 variable "octopus_server_url" {
-  description = "The URL of your Octopus Deploy server"
+  description = "The URL of your Octopus Deploy server (external access for Terraform provider)"
   type        = string
-  default     = "http://localhost:8080"
+  default     = "http://localhost"
+}
+
+variable "octopus_server_internal_url" {
+  description = "The internal URL of your Octopus Deploy server (for Kubernetes Agent)"
+  type        = string
+  default     = "http://octopus-web.octopus.svc.cluster.local"
 }
 
 variable "octopus_api_key" {
@@ -58,6 +64,12 @@ variable "namespace" {
   description = "Kubernetes namespace for Octopus Deploy"
   type        = string
   default     = "octopus"
+}
+
+variable "kubectl_version" {
+  description = "Version of kubectl to install in the Octopus container"
+  type        = string
+  default     = "v1.28.0"
 }
 
 variable "create_octopus_resources" {
