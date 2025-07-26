@@ -1,53 +1,253 @@
 # Octopus Deploy on Kubernetes
 
-This repository provides a complete Infrastructure as Code solution for deploying Octopus Deploy on Kubernetes using Terraform, with full **Kubernetes Agent** support for modern container deployments.
+This repository provides a complete Infrastructure as Code solution for deploying Octopus Deploy on Kubernetes using Terraform, with **Kubernetes Agent** support for modern container deployments.
 
-## Overview
+## 🚀 Quick Start
 
-This project offers **two deployment approaches**:
+Choose your preferred deployment method:
 
-1. **🔧 Shell Script (`install.sh`)** - Quick setup for testing and development
-2. **🏗️ Terraform (`terraform/`)** - Production-ready Infrastructure as Code (Recommended)
+### Option 1: Automated Installation Script (Recommended for Testing)
+```bash
+git clone <repository-url>
+cd octopus-deploy-k8s
+chmod +x install.sh
+./install.sh
+```
 
-The Terraform approach completely replaces the `install.sh` script with a two-phase deployment that provides:
-- **Reproducible deployments** - Exact same setup every time
-- **Version controlled configuration** - All settings tracked in git
-- **State management** - Knows what was created and can update/rollback
-- **Dependency management** - Automatic resource ordering
-- **Secure secrets handling** - Sensitive values properly managed
-- **Kubernetes Agent** - Modern deployment approach using service account authentication
-- **Auto-kubectl installation** - kubectl automatically installed in Octopus container for K8s operations
+### Option 2: Terraform Infrastructure as Code (Recommended for Production)
+```bash
+git clone <repository-url>
+cd octopus-deploy-k8s/terraform
+terraform init
+terraform apply
+```
 
-## Kubernetes Agent vs Traditional Tentacles
+Both approaches deploy the same infrastructure with:
+- ✅ **Octopus Deploy Server** with SQL Server backend
+- ✅ **Kubernetes Agent** with kubectl auto-installation
+- ✅ **Service Account Authentication** using RBAC
+- ✅ **Three Environments** (Development, Test, Production)
+- ✅ **Modern Deployment Target** using Kubernetes API
 
-This deployment uses the **Kubernetes Agent** approach, which is the recommended method for Kubernetes deployments:
+## 📋 Prerequisites
 
-✅ **Kubernetes Agent (This Setup)**:
-- Uses Octopus server to communicate directly with Kubernetes API
-- Leverages service account and RBAC for authentication
-- No separate agent containers needed
-- More efficient and secure
-- **kubectl** installed automatically in Octopus server container
+Before starting, ensure you have:
+- **Kubernetes cluster** (Docker Desktop works great)
+- **kubectl** configured and connected to your cluster
+- **Terraform ≥ 1.0** - [Download Terraform](https://www.terraform.io/downloads.html)
+- **Helm 3.x** - [Install Helm](https://helm.sh/docs/intro/install/)
 
-❌ **Traditional Tentacles**:
-- Requires separate agent containers
-- More complex networking and authentication
-- Higher resource overhead
-- Not recommended for Kubernetes
+## 🤖 Automated Installation Script
 
-## Quick Start
+The `install.sh` script provides a fully automated deployment experience:
 
-1. **Clone and navigate**:
+### Features
+- 🔄 **Complete Automation** - No manual steps required
+- 🎨 **Colored Output** - Easy to follow progress
+- ⚡ **Smart Resumption** - Can be restarted safely
+- 🔑 **Interactive Prompts** - Guides you through API key and bearer token setup
+- ✅ **Verification** - Checks prerequisites and deployment status
+
+### What It Does
+
+1. **Phase 1: Infrastructure Deployment**
+   - Deploys Octopus server and SQL database
+   - Creates Kubernetes namespace and RBAC
+   - Installs kubectl in Octopus container
+
+2. **Interactive Setup**
+   - Prompts for API key creation (with skip if already configured)
+   - Guides through bearer token generation for Kubernetes Agent
+
+3. **Phase 2: Octopus Configuration**
+   - Creates environments and project groups
+   - Deploys CSI Driver NFS (required dependency)
+   - Installs official Kubernetes Agent using Helm
+
+### Usage
+```bash
+# First time run
+./install.sh
+
+# If you need to restart (it will skip already configured items)
+./install.sh
+
+# Clean reinstall (destroy everything first)
+cd terraform && terraform destroy && cd .. && ./install.sh
+```
+
+## 🏗️ Terraform Infrastructure as Code
+
+For production deployments, use the Terraform configuration directly:
+
+### Two-Phase Deployment
+
+The deployment uses a two-phase approach to solve the chicken-and-egg problem of needing an API key from a system that doesn't exist yet:
+
+#### Phase 1: Infrastructure
+```bash
+cd terraform
+terraform init
+cp terraform.tfvars.example terraform.tfvars
+terraform apply -var="create_octopus_resources=false" -auto-approve
+```
+
+#### Phase 2: Configuration
+After Phase 1, get an API key from Octopus UI and bearer token, then:
+```bash
+# Update terraform.tfvars with your keys
+terraform apply -auto-approve
+```
+
+### Key Configuration Files
+
+- **`terraform/main.tf`** - Infrastructure resources (namespace, Octopus server, SQL)
+- **`terraform/phase1.tf`** - Phase 1 specific resources  
+- **`terraform/phase2.tf`** - Phase 2 Octopus configuration with Kubernetes Agent
+- **`terraform/variables.tf`** - All configurable parameters
+- **`terraform/terraform.tfvars`** - Your actual configuration values
+
+## 🎯 Kubernetes Agent Architecture
+
+This deployment uses the modern **Kubernetes Agent** approach:
+
+### ✅ What You Get
+- **Direct Kubernetes API Communication** - No separate agent containers
+- **Service Account Authentication** - Secure RBAC permissions
+- **Auto-kubectl Installation** - kubectl installed in Octopus container
+- **CSI Driver NFS** - Required storage driver for Kubernetes Agent
+- **Bearer Token Authentication** - Official Octopus authentication method
+- **All Environments Connected** - Single target serves Dev/Test/Prod
+
+### 🔧 How It Works
+1. **Service Account** created with cluster-wide permissions
+2. **Bearer Token** generated from Octopus UI for authentication
+3. **CSI Driver NFS** deployed as prerequisite
+4. **Kubernetes Agent** deployed via official Helm chart
+5. **kubectl** automatically available for Kubernetes operations
+
+## 🌐 Access Information
+
+After deployment:
+- **URL**: `http://localhost`
+- **Username**: `admin`
+- **Password**: `Password01!`
+
+## 📊 What Gets Created
+
+### Infrastructure Resources
+- 🏗️ Kubernetes namespace (`octopus`)
+- 🐙 Octopus Deploy server (latest version)
+- 🗄️ SQL Server 2019 Linux database
+- 🔐 Auto-generated master key for encryption
+- 🌐 LoadBalancer service for web access
+
+### Octopus Configuration
+- 🌍 **Environments**: Development, Test, Production
+- 📁 **Project Group**: "Terraform Managed Projects"
+- 🔄 **Lifecycle**: With promotion phases and retention policies
+- 🎯 **Kubernetes Agent**: Official Helm chart deployment
+- 💾 **CSI Driver NFS**: Required storage driver
+
+## 🔧 Useful Commands
+
+```bash
+# Check deployment status
+kubectl get all -n octopus
+
+# View install script logs
+./install.sh 2>&1 | tee install.log
+
+# Terraform operations
+cd terraform
+terraform show              # View current state
+terraform output           # Show outputs
+terraform plan             # Preview changes
+terraform destroy         # Clean everything
+
+# Troubleshooting
+kubectl logs -f statefulset/octopus -n octopus
+kubectl describe pod octopus-0 -n octopus
+```
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **kubectl missing in Octopus container**:
    ```bash
-   git clone <repository-url>
-   cd octopus-deploy-k8s
+   ./kubectl-install.sh
    ```
 
-2. **Deploy with Terraform**:
+2. **Kubernetes Agent health check failing**:
    ```bash
-   cd terraform
-   terraform init
-   terraform apply
+   # Check bearer token is configured
+   grep octopus_bearer_token terraform/terraform.tfvars
+   
+   # Verify CSI Driver NFS is running
+   kubectl get pods -n kube-system | grep csi-nfs
+   
+   # Check Kubernetes Agent pod
+   kubectl get pods -n octopus | grep kubernetes-agent
+   ```
+
+3. **Port conflicts**:
+   - Make sure port 80 is available (not used by other services)
+   - Check with: `lsof -i :80`
+
+4. **API key issues**:
+   - Format: `API-XXXXXXXXXXXXXXXXXXXXXXXXXX`
+   - Create in Octopus UI: Configuration → Users → admin → API Keys
+
+5. **Bearer token issues**:
+   - Format: `eyJhbGciOiJQUzI1NiIsImtpZCI6Im...`
+   - Get from Octopus UI: Infrastructure → Deployment Targets → Add → Kubernetes Agent
+
+## 🏭 Production Considerations
+
+For production deployments:
+
+1. **Security**:
+   - Change default admin password
+   - Use HTTPS with proper certificates
+   - Implement network policies
+   - Use specific image tags (not `latest`)
+
+2. **Infrastructure**:
+   - Use remote Terraform state (S3, Azure Storage)
+   - Implement proper backup strategies
+   - Configure monitoring and alerting
+   - Use dedicated service accounts with minimal permissions
+
+3. **Configuration**:
+   - Customize resource limits and requests
+   - Configure persistent storage for SQL Server
+   - Set up ingress controllers
+   - Implement proper RBAC policies
+
+## 📚 Next Steps
+
+After deployment, you can:
+
+1. **Create Projects** using the configured environments
+2. **Deploy Applications** to your Kubernetes cluster
+3. **Extend Configuration** with additional Terraform resources
+4. **Add More Deployment Targets** for other environments
+5. **Configure Teams and Permissions** for your organization
+
+See the [Octopus Deploy documentation](https://octopus.com/docs) and [Terraform Provider docs](https://registry.terraform.io/providers/OctopusDeployLabs/octopusdeploy/latest/docs) for more advanced configurations.
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch  
+3. Test your changes thoroughly
+4. Submit a pull request
+
+## 📄 License
+
+This project is provided as-is. Please review Octopus Deploy's licensing terms before use.
    ```
 
 3. **Install kubectl in Octopus** (for Kubernetes deployment targets):
