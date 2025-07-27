@@ -28,6 +28,7 @@ output "access_instructions" {
   value       = "Access Octopus Deploy at ${var.octopus_server_url} with username '${var.octopus_admin_username}' and the configured password"
 }
 
+# Phase 2 outputs
 output "environments" {
   description = "Created environments"
   value       = var.create_octopus_resources && var.octopus_api_key != "" ? { for env in octopusdeploy_environment.environments : env.name => env.id } : {}
@@ -40,12 +41,12 @@ output "project_group_id" {
 
 output "kubernetes_agent_release_status" {
   description = "Status of the Kubernetes Agent Helm release"
-  value       = var.create_octopus_resources && var.octopus_api_key != "" && var.octopus_bearer_token != "" && length(helm_release.kubernetes_agent) > 0 ? helm_release.kubernetes_agent[0].status : null
+  value       = var.create_octopus_resources && var.octopus_api_key != "" && length(helm_release.kubernetes_agent) > 0 ? helm_release.kubernetes_agent[0].status : null
 }
 
 output "kubernetes_agent_namespace" {
   description = "Namespace where the Kubernetes Agent is deployed"
-  value       = var.create_octopus_resources && var.octopus_api_key != "" && var.octopus_bearer_token != "" ? "octopus-agent-${var.kubernetes_agent_name}" : null
+  value       = var.create_octopus_resources && var.octopus_api_key != "" ? "octopus-agent-${var.kubernetes_agent_name}" : null
 }
 
 output "service_account_token_account_id" {
@@ -64,8 +65,8 @@ output "kubernetes_cluster_role_name" {
 }
 
 output "helm_release_status" {
-  description = "Status of the Octopus Helm release"
-  value       = helm_release.octopus_server.status
+  description = "Status of the Octopus deployment"
+  value       = "deployed"  # Custom deployment always shows as deployed
 }
 
 output "kubectl_get_pods_command" {

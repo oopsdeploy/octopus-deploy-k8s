@@ -9,7 +9,7 @@ resource "octopusdeploy_environment" "environments" {
   allow_dynamic_infrastructure = true
   use_guided_failure           = false
 
-  depends_on = [helm_release.octopus_server]
+  depends_on = [kubernetes_manifest.octopus_deployment]
 }
 
 # Create a project group (only if create_octopus_resources is true and API key is provided)
@@ -19,27 +19,14 @@ resource "octopusdeploy_project_group" "main" {
   name        = var.project_group_name
   description = "Main project group managed by Terraform"
 
-  depends_on = [helm_release.octopus_server]
+  depends_on = [kubernetes_manifest.octopus_deployment]
 }
 
-# Deploy CSI Driver NFS (required for Kubernetes Agent)
-resource "helm_release" "csi_driver_nfs" {
-  count = var.create_octopus_resources && var.octopus_api_key != "" ? 1 : 0
-  
-  name       = "csi-driver-nfs"
-  repository = "https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts"
-  chart      = "csi-driver-nfs"
-  namespace  = "kube-system"
-  version    = "v4.*.*"
-  
-  atomic = true
-  
-  depends_on = [octopusdeploy_environment.environments]
-}
+# CSI Driver NFS removed - not needed for simplified agent configuration
 
 # Deploy Kubernetes Agent
 resource "helm_release" "kubernetes_agent" {
-  count = var.create_octopus_resources && var.octopus_api_key != "" ? 1 : 0
+  count = var.create_octopus_resources && var.octopus_api_key != "" && var.octopus_bearer_token != "" ? 1 : 0
   
   name             = var.kubernetes_agent_name
   repository       = "oci://registry-1.docker.io/octopusdeploy"
@@ -54,24 +41,31 @@ resource "helm_release" "kubernetes_agent" {
     yamlencode({
       agent = {
         acceptEula = "Y"
-        space = "Default"  # Use space name, not ID
-        serverUrl = var.octopus_server_internal_url
-        serverCommsAddresses = ["tcp://${replace(var.octopus_server_internal_url, "http://", "")}:10943"]
-        # Use API key instead of bearer token for authentication
-        serverApiKey = var.octopus_api_key
+        space = "Default"
+        serverUrl = "http://octopus-web.octopus.svc.cluster.local/"
+        serverCommsAddresses = ["http://octopus-tentacle.octopus.svc.cluster.local:10943/"]
+        # Use bearer token for authentication (required)
+        bearerToken = var.octopus_bearer_token
         name = var.kubernetes_agent_name
         deploymentTarget = {
           initial = {
-            environments = var.environment_names
+            environments = ["development"]
             tags = ["k8s"]
           }
           enabled = "true"
         }
       }
+      # Use default NFS persistence now that CSI driver is installed
+      persistence = {
+        # Let it use default NFS configuration
+      }
     })
   ]
   
-  depends_on = [helm_release.csi_driver_nfs, octopusdeploy_environment.environments]
+  depends_on = [
+    octopusdeploy_environment.environments
+    # NFS CSI driver should be installed in Phase 1
+  ]
 }
 
 # Note: The Kubernetes Agent will automatically create its deployment target in Octopus
@@ -85,7 +79,7 @@ resource "octopusdeploy_token_account" "kubernetes_service_account" {
   description = "Service account token for docker-desktop Kubernetes cluster"
   token       = data.kubernetes_secret.octopus_deploy_token.data["token"]
 
-  depends_on = [helm_release.octopus_server]
+  depends_on = [kubernetes_manifest.octopus_deployment]
 }
 
 # Data source to get the service account token

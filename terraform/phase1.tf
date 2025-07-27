@@ -84,58 +84,263 @@ resource "kubernetes_secret" "octopus_deploy_token" {
   type = "kubernetes.io/service-account-token"
 }
 
-# Deploy Octopus Server using Helm
-resource "helm_release" "octopus_server" {
-  name       = "octopus"
-  repository = "https://octopus-helm-charts.s3.amazonaws.com"
-  chart      = "octopusdeploy"
-  namespace  = kubernetes_namespace.octopus.metadata[0].name
+# Create a persistent volume for kubectl binary
+resource "kubernetes_persistent_volume_claim" "kubectl_tools" {
+  metadata {
+    name      = "kubectl-tools"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+  
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        storage = "100Mi"
+      }
+    }
+  }
+}
 
-  values = [
-    yamlencode({
-      octopus = {
-        image      = "octopusdeploy/octopusdeploy:${var.octopus_image_tag}"
-        username   = var.octopus_admin_username
-        password   = var.octopus_admin_password
-        acceptEula = "Y"
-        masterKey  = base64encode(random_password.octopus_master_key.result)
-        # Environment variables for kubectl installation
-        extraEnv = [
-          {
-            name  = "KUBECTL_VERSION"
-            value = var.kubectl_version
+# Create persistent volumes for Octopus data
+resource "kubernetes_persistent_volume_claim" "octopus_repository" {
+  metadata {
+    name      = "octopus-repository"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        storage = "1Gi"
+      }
+    }
+  }
+}
+
+resource "kubernetes_persistent_volume_claim" "octopus_artifacts" {
+  metadata {
+    name      = "octopus-artifacts"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        storage = "1Gi"
+      }
+    }
+  }
+}
+
+resource "kubernetes_persistent_volume_claim" "octopus_task_logs" {
+  metadata {
+    name      = "octopus-task-logs"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        storage = "1Gi"
+      }
+    }
+  }
+}
+
+resource "kubernetes_persistent_volume_claim" "octopus_server_logs" {
+  metadata {
+    name      = "octopus-server-logs"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        storage = "200Mi"
+      }
+    }
+  }
+}
+
+# Create a secret for Octopus configuration
+resource "kubernetes_secret" "octopus_config" {
+  metadata {
+    name      = "octopus-config"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+  
+  data = {
+    AdminUsername    = var.octopus_admin_username
+    AdminPassword    = var.octopus_admin_password
+    MasterKey        = base64encode(random_password.octopus_master_key.result)
+    ConnectionString = "Server=octopus-mssql,1433;Database=Octopus;User Id=SA;Password=Password01!"
+  }
+}
+
+# Deploy SQL Server using native Kubernetes resources
+resource "kubernetes_deployment" "mssql" {
+  metadata {
+    name      = "octopus-mssql"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+    labels = {
+      app = "mssql"
+    }
+  }
+
+  spec {
+    replicas = 1
+    
+    selector {
+      match_labels = {
+        app = "mssql"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "mssql"
+        }
+      }
+
+      spec {
+        container {
+          name  = "mssql"
+          image = "mcr.microsoft.com/mssql/server:${var.sqlserver_image_tag}"
+          
+          env {
+            name = "ACCEPT_EULA"
+            value = "Y"
           }
-        ]
-        # Add startup command to install kubectl before Octopus starts
-        command = ["/bin/bash"]
-        args = [
-          "-c",
-          <<-EOF
-          echo "Installing kubectl ${var.kubectl_version}..."
-          curl -LO "https://dl.k8s.io/release/${var.kubectl_version}/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          mv kubectl /usr/local/bin/kubectl
-          echo "kubectl installed successfully"
-          kubectl version --client
-          echo "Starting Octopus Deploy..."
-          exec /usr/local/bin/docker-entrypoint.sh
-          EOF
-        ]
-      }
-      "mssql-linux" = {
-        acceptEula = {
-          value = "Y"
-        }
-        image = {
-          repository = "mcr.microsoft.com/mssql/server"
-          tag        = var.sqlserver_image_tag
+          
+          env {
+            name = "SA_PASSWORD"
+            value = "Password01!"
+          }
+          
+          port {
+            container_port = 1433
+            name          = "mssql"
+          }
+          
+          resources {
+            requests = {
+              cpu    = "500m"
+              memory = "2Gi"
+            }
+            limits = {
+              cpu    = "1000m"
+              memory = "4Gi"
+            }
+          }
         }
       }
-    })
+    }
+  }
+
+  depends_on = [kubernetes_namespace.octopus]
+}
+
+# SQL Server Service
+resource "kubernetes_service" "mssql" {
+  metadata {
+    name      = "octopus-mssql"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+
+  spec {
+    selector = {
+      app = "mssql"
+    }
+
+    port {
+      name        = "mssql"
+      port        = 1433
+      target_port = 1433
+      protocol    = "TCP"
+    }
+
+    type = "ClusterIP"
+  }
+
+  depends_on = [kubernetes_deployment.mssql]
+}
+
+# Apply Octopus Deployment using existing YAML manifest
+resource "kubernetes_manifest" "octopus_deployment" {
+  manifest = yamldecode(templatefile("${path.module}/../octopus-deployment.yaml", {
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+    kubectl_version = var.kubectl_version
+    octopus_image_tag = var.octopus_image_tag
+  }))
+
+  depends_on = [
+    kubernetes_persistent_volume_claim.kubectl_tools,
+    kubernetes_deployment.mssql,
+    kubernetes_service_account.octopus_deploy,
+    kubernetes_secret.octopus_config
   ]
+}
 
-  timeout = 600
-  wait    = true
+# Service for Octopus Web Interface
+resource "kubernetes_service" "octopus_web" {
+  metadata {
+    name      = "octopus-web"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
 
-  depends_on = [kubernetes_namespace.octopus, kubernetes_service_account.octopus_deploy]
+  spec {
+    selector = {
+      app = "octopus"
+    }
+
+    port {
+      name        = "web"
+      port        = 80
+      target_port = 8080
+      protocol    = "TCP"
+    }
+
+    type = "LoadBalancer"
+  }
+
+  depends_on = [kubernetes_manifest.octopus_deployment]
+}
+
+# Service for Octopus Tentacle Communication
+resource "kubernetes_service" "octopus_tentacle" {
+  metadata {
+    name      = "octopus-tentacle"
+    namespace = kubernetes_namespace.octopus.metadata[0].name
+  }
+
+  spec {
+    selector = {
+      app = "octopus"
+    }
+
+    port {
+      name        = "tentacle"
+      port        = 10943
+      target_port = 10943
+      protocol    = "TCP"
+    }
+
+    type = "LoadBalancer"
+  }
+
+  depends_on = [kubernetes_manifest.octopus_deployment]
+}
+
+# Install NFS CSI Driver (required for Kubernetes Agent)
+resource "helm_release" "nfs_csi_driver" {
+  name             = "csi-driver-nfs"
+  repository       = "https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts"
+  chart            = "csi-driver-nfs"
+  namespace        = "kube-system"
+  version          = "v4.*.*"
+  
+  atomic = true
+  
+  depends_on = [kubernetes_namespace.octopus]
 }

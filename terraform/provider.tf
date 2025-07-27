@@ -8,9 +8,9 @@ provider "helm" {
   }
 }
 
-# Octopus provider - uses dummy values when API key is not provided
+# Octopus provider - configured for Phase 2 deployment
 provider "octopusdeploy" {
-  address  = var.octopus_api_key != "" ? var.octopus_server_url : "http://localhost:8080"
-  api_key  = var.octopus_api_key != "" ? var.octopus_api_key : "API-DUMMY-KEY-FOR-INIT-ONLY"
-  space_id = var.octopus_api_key != "" ? var.octopus_space_id : "Spaces-1"
+  address  = var.octopus_server_url
+  api_key  = var.octopus_api_key
+  space_id = var.octopus_space_id
 }

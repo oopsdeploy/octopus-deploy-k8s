@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: octopus
+  namespace: ${namespace}
+  labels:
+    app: octopus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: octopus
+  template:
+    metadata:
+      labels:
+        app: octopus
+    spec:
+      serviceAccountName: octopus-deploy
+      initContainers:
+      - name: kubectl-installer
+        image: alpine:latest
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "Installing kubectl ${kubectl_version}..."
+          apk add --no-cache curl
+          mkdir -p /shared/bin
+          curl -LO "https://dl.k8s.io/release/${kubectl_version}/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          mv kubectl /shared/bin/kubectl
+          echo "kubectl ${kubectl_version} installed successfully"
+          ls -la /shared/bin/
+          /shared/bin/kubectl version --client
+        volumeMounts:
+        - name: kubectl-tools
+          mountPath: /shared
+      containers:
+      - name: octopus
+        image: octopusdeploy/octopusdeploy:${octopus_image_tag}
+        env:
+        - name: ACCEPT_EULA
+          value: "Y"
+        - name: OCTOPUS_SERVER_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: DB_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: octopus-config
+              key: ConnectionString
+        - name: ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: octopus-config
+              key: AdminUsername
+        - name: ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: octopus-config
+              key: AdminPassword
+        - name: MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: octopus-config
+              key: MasterKey
+        - name: PATH
+          value: "/shared/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ports:
+        - containerPort: 8080
+          name: web
+        - containerPort: 10943
+          name: tentacle
+        volumeMounts:
+        - name: kubectl-tools
+          mountPath: /shared
+          readOnly: true
+        - name: repository
+          mountPath: /repository
+        - name: artifacts
+          mountPath: /artifacts
+        - name: task-logs
+          mountPath: /taskLogs
+        - name: server-logs
+          mountPath: /home/octopus/.octopus/OctopusServer/Server/Logs
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - curl -f http://localhost:8080/api/octopusservernodes/ping || exit 1
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - curl -f http://localhost:8080/api/serverstatus/hosted/internal || exit 1
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 60
+      volumes:
+      - name: kubectl-tools
+        persistentVolumeClaim:
+          claimName: kubectl-tools
+      - name: repository
+        persistentVolumeClaim:
+          claimName: octopus-repository
+      - name: artifacts
+        persistentVolumeClaim:
+          claimName: octopus-artifacts
+      - name: task-logs
+        persistentVolumeClaim:
+          claimName: octopus-task-logs
+      - name: server-logs
+        persistentVolumeClaim:
+          claimName: octopus-server-logs
